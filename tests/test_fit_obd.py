@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import obd
@@ -172,13 +173,16 @@ def test_query_refuses_clear_codes_and_sends_nothing() -> None:
     assert car.sent == []
 
 
-def test_readiness_lines_counts_complete_monitors() -> None:
-    lines = readiness_lines(_status())
-    assert lines[0].startswith("Readiness monitors: 3 of 3 complete (all complete)")
-    lines = readiness_lines(_status(incomplete=("CATALYST_MONITORING",)))
-    assert "2 of 3 complete (1 not complete)" in lines[0]
-    assert any("catalyst" in line and "NOT complete" in line for line in lines)
-    assert readiness_lines(None) == ["Readiness: not reported."]
+def test_readiness_lines_reports_only_fitted_monitors() -> None:
+    status = SimpleNamespace(
+        MISFIRE_MONITORING=SimpleNamespace(available=True, complete=True),
+        EVAPORATIVE_SYSTEM_MONITORING=SimpleNamespace(available=True, complete=False),
+        EGR_VVT_SYSTEM_MONITORING=SimpleNamespace(available=False, complete=False),
+    )
+    lines = readiness_lines(status)
+    assert len(lines) == 2
+    assert "complete" in lines[0] and "INCOMPLETE" in lines[1]
+    assert readiness_lines(None) == ["Readiness: not reported"]
 
 
 def test_snapshot_from_a_simulated_car() -> None:
@@ -215,6 +219,7 @@ def test_explore_from_a_simulated_car_never_asks_for_the_vin() -> None:
     text = "\n".join(fit_obd.explore_lines(car))
     assert "Protocol: ISO 15765-4" in text
     assert "Live sensors this car supports (4):" in text
-    assert "Pending codes: none" in text and "Freeze frame: none stored" in text
+    assert "Pending codes (seen but not confirmed):\n  none" in text
+    assert "Freeze frame:\n  none stored" in text
     assert obd.commands.VIN.command not in car.sent
     assert all(is_read_only(req) for req in car.sent)

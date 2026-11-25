@@ -19,7 +19,7 @@ import json
 import statistics
 import sys
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -138,7 +138,7 @@ class Snapshot:
 
 
 def is_read_only(request: bytes) -> bool:
-    """True when an OBD request belongs to a read-only service mode or adapter read.
+    """True when an OBD request belongs to a read-only service mode.
 
     Args:
         request: The raw request bytes, for example b"010C" or b"ATRV".
@@ -231,34 +231,24 @@ def health_flags(
 
 
 def readiness_lines(status: Any) -> list[str]:
-    """Describe the emissions readiness monitors in a python-obd Status object.
+    """Describe each emissions readiness monitor as plain text.
 
     Args:
-        status: The decoded STATUS response (mode 01 PID 01), or None.
+        status: A python-obd Status object (from the STATUS command), or None.
 
     Returns:
-        One line per monitor the car has, then a one-line verdict.
+        One line per monitor the car has: complete, incomplete, or not fitted.
     """
     if status is None:
-        return ["Readiness: not reported."]
-    lines: list[str] = []
-    available = 0
-    complete = 0
+        return ["Readiness: not reported"]
+    lines = []
     for name in SPARK_MONITORS:
         test = getattr(status, name, None)
         if test is None or not test.available:
             continue
-        available += 1
-        complete += bool(test.complete)
-        state = "complete" if test.complete else "NOT complete"
-        lines.append(f"  {name.removesuffix('_MONITORING').replace('_', ' ').lower():<24} {state}")
-    if not available:
-        return ["Readiness: the car reports no monitors."]
-    verdict = "all complete" if complete == available else f"{available - complete} not complete"
-    return [
-        f"Readiness monitors: {complete} of {available} complete ({verdict})",
-        *lines,
-    ]
+        state = "complete" if test.complete else "INCOMPLETE"
+        lines.append(f"  {name.replace('_', ' ').title():<36} {state}")
+    return lines or ["  (car reports no monitors)"]
 
 
 def summarize_rows(rows: list[dict[str, str]]) -> dict[str, dict[str, float]]:
@@ -322,17 +312,6 @@ def format_snapshot(snap: Snapshot, show_vin: bool = False) -> str:
     return "\n".join(lines)
 
 
-def format_codes(title: str, codes: Iterable[tuple[str, str]] | None) -> list[str]:
-    """Render a list of (code, description) pairs under a title."""
-    codes = list(codes or [])
-    if not codes:
-        return [f"{title}: none"]
-    return [
-        f"{title}:",
-        *(f"  {code}  {desc or '(no description)'}" for code, desc in codes),
-    ]
-
-
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
@@ -393,7 +372,7 @@ def _query(conn: Any, name: str) -> Any:
 
     cmd = getattr(obd.commands, name)
     if not is_read_only(cmd.command):
-        raise ReadOnlyViolation(f"refused {name} ({cmd.command!r}): not a read-only request")
+        raise ReadOnlyViolation(f"Refusing to send {name}: not a read-only OBD request.")
     if not conn.supports(cmd):
         return None
     response = conn.query(cmd)
@@ -418,36 +397,36 @@ def take_snapshot(conn: Any) -> Snapshot:
 
 
 def explore_lines(conn: Any) -> list[str]:
-    """Read what the car offers: protocol, live sensors, readiness, pending codes, freeze frame.
+    """Read supported sensors, readiness monitors, pending codes and freeze frame.
 
-    Never asks for the VIN.
+    Never asks for the VIN. All reads happen before the caller closes the connection.
     """
     protocol = conn.protocol_name()
     live = sorted(
-        (c for c in conn.supported_commands if c.mode == 1 and not c.name.startswith("PIDS_")),
+        (
+            c
+            for c in conn.supported_commands
+            if c.command[:2] == b"01" and not c.name.startswith("PIDS_")
+        ),
         key=lambda c: c.command,
     )
+    status = _query(conn, "STATUS")
+    pending = _query(conn, "GET_CURRENT_DTC") or []
+    freeze = _query(conn, "FREEZE_DTC")
+
     lines = [f"Protocol: {protocol}", f"Live sensors this car supports ({len(live)}):"]
     lines += [f"  {c.command.decode()}  {c.name:<28} {c.desc}" for c in live]
-    lines.append("")
-    lines += readiness_lines(_query(conn, "STATUS"))
-    lines.append("")
-    lines += format_codes("Pending codes", _query(conn, "GET_CURRENT_DTC"))
-    freeze = _query(conn, "FREEZE_DTC")
-    if not freeze or not freeze[0] or freeze[0] == "P0000":
-        lines.append("Freeze frame: none stored")
+    lines.append("\nEmissions readiness monitors:")
+    if status is not None:
+        lines.append(f"  Engine type: {status.ignition_type or 'unknown'}")
+    lines += readiness_lines(status)
+    lines.append("\nPending codes (seen but not confirmed):")
+    lines += [f"  {code}  {desc}" for code, desc in pending] or ["  none"]
+    lines.append("\nFreeze frame:")
+    if freeze and freeze[0] != "P0000":
+        lines.append(f"  Stored, triggered by {freeze[0]}  {freeze[1]}")
     else:
-        lines.append(f"Freeze frame: set by {freeze[0]} {freeze[1] or ''}".rstrip())
-        frame = sorted(
-            (c for c in conn.supported_commands if c.mode == 2 and not c.name.startswith("PIDS_")),
-            key=lambda c: c.command,
-        )
-        for c in frame:
-            if c.name == "FREEZE_DTC":
-                continue
-            r = to_reading(c.name, _query(conn, c.name))
-            value = "no answer" if r.value is None else f"{r.value} {r.unit}".strip()
-            lines.append(f"  {c.name:<28} {value}")
+        lines.append("  none stored")
     return lines
 
 
@@ -565,7 +544,7 @@ def main() -> None:
     try:
         args.func(args)
     except ReadOnlyViolation as exc:
-        print(f"ERROR: {exc}. Nothing was sent to the car.", file=sys.stderr)
+        print(f"ERROR: {exc} Nothing was sent to the car.", file=sys.stderr)
         sys.exit(1)
 
 

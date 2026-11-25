@@ -47,7 +47,7 @@ and, if needed, `--baud 115200`. These options go before the command:
 </details>
 
 In the video, Claude Code started in the car with one prompt and the reader already in its folder;
-[docs/car_prompt.txt](docs/car_prompt.txt) is that prompt, lightly generalized. The script keeps
+[docs/car_prompt.txt](docs/car_prompt.txt) is that prompt, with the car and cable made generic. The script keeps
 the name it had in the video, `fit_obd.py`, but asks only for standard OBD-II data, nothing
 specific to Honda.
 
@@ -69,7 +69,7 @@ by `uv` on the first run.
 |---|---|
 | `ports` | The serial ports that answer when opened (it briefly opens each candidate port) |
 | `check` | One snapshot: VIN (masked to its last four), check-engine light, stored codes, adapter and computer voltage, temperatures, fuel, RPM, speed, load, fuel trims, pressure, distances, then plain-English flags (low battery with the engine off, charging voltage out of range with it running, hot coolant, large fuel trims, low fuel). Saves the full snapshot as JSON in `logs/` |
-| `explore` | The protocol, every mode 01 value the car says it supports (listed as "live sensors"; the count includes status items such as `0101 STATUS`), the emissions readiness monitors the car has, pending codes and the freeze frame. Never asks for the VIN |
+| `explore` | The protocol, every mode 01 value the car says it supports (listed as "live sensors"; the count includes status items such as `0101 STATUS`), the emissions readiness monitors the car has, pending codes and whether a freeze frame is stored (and which code set it). Never asks for the VIN |
 | `log` | 15 values once a second to `logs/drive_<time>.csv`, until Ctrl-C or `--seconds N` |
 | `summary FILE` | Min, mean and max of each column of a drive log |
 
@@ -83,7 +83,7 @@ below is the emulator's, none is from a real car, and the VIN is the emulator's 
 $ uv run --with ELM327-emulator==4.0.0 simulate.py check
 Simulated car (ELM327-emulator, scenario 'car'): no real car involved.
 
-Car snapshot  2026-11-24T21:55:04
+Car snapshot  2026-11-24T22:08:11
 VIN: *********TS39
 Check-engine light: off
 Trouble codes: none
@@ -106,7 +106,7 @@ Trouble codes: none
 
 No flags.
 
-Saved logs/simulated/check_20261124_215505.json (it holds the full VIN: keep it private)
+Saved logs/simulated/check_20261124_220811.json (it holds the full VIN: keep it private)
 ```
 
 ```
@@ -118,32 +118,34 @@ Live sensors this car supports (40):
   0101  STATUS                       Status since DTCs cleared
   0103  FUEL_STATUS                  Fuel System Status
   ...
-  014D  RUN_TIME_MIL                 Time run with MIL on
-  014E  TIME_SINCE_DTC_CLEARED       Time since trouble codes cleared
   0151  FUEL_TYPE                    Fuel Type
   015B  HYBRID_BATTERY_REMAINING     Hybrid battery pack remaining life
 
-Readiness monitors: 6 of 6 complete (all complete)
-  misfire                  complete
-  fuel system              complete
-  component                complete
-  catalyst                 complete
-  oxygen sensor            complete
-  egr vvt system           complete
+Emissions readiness monitors:
+  Engine type: spark
+  Misfire Monitoring                   complete
+  Fuel System Monitoring               complete
+  Component Monitoring                 complete
+  Catalyst Monitoring                  complete
+  Oxygen Sensor Monitoring             complete
+  Egr Vvt System Monitoring            complete
 
-Pending codes: none
-Freeze frame: none stored
+Pending codes (seen but not confirmed):
+  none
+
+Freeze frame:
+  none stored
 ```
 
 ```
 $ uv run --with ELM327-emulator==4.0.0 simulate.py log --seconds 3
 Simulated car (ELM327-emulator, scenario 'car'): no real car involved.
 
-Logging 15 values every 1.0s to logs/simulated/drive_20261124_215517.csv
+Logging 15 values every 1.0s to logs/simulated/drive_20261124_220823.csv
 Stopping after 3 s.
 
-Stopped. 3 rows in logs/simulated/drive_20261124_215517.csv
-$ uv run fit_obd.py summary logs/simulated/drive_20261124_215517.csv
+Stopped. 3 rows in logs/simulated/drive_20261124_220823.csv
+$ uv run fit_obd.py summary logs/simulated/drive_20261124_220823.csv
 value                            min      mean       max      n
 RPM                              0.0   1837.42    4208.5      3
 SPEED                           10.0     34.67      55.0      3
@@ -163,8 +165,7 @@ test the battery and check its terminals, not a diagnosis.
   read mode (01 live data, 02 freeze frame, 03 stored codes, 07 pending codes, 09 vehicle info)
   or the adapter's own voltage read (`ATRV`, which never reaches the car). Mode 04 (clear codes),
   mode 08 (on-board tests) and every other mode are refused before anything is sent. The tests
-  check every command in the tool's fixed lists against the guard; the freeze-frame values that
-  `explore` picks at run time are mode 02 and go through the same guard.
+  check every command the tool sends by name against the guard.
 - The python-obd library itself sends the adapter's setup commands (`AT...`, they configure the
   cable, not the car) and the standard "which sensors do you support" reads when it connects.
 - There is no command in this tool to clear codes, reset anything, or reprogram the car, and
@@ -202,12 +203,15 @@ macOS and Linux include an FTDI driver.
 
 - **On a real car (November 2026):** `check`, `explore` and a 30-second engine-running `log` on
   one 2016 Honda Fit, from Windows 10 with a Vgate vLinker FS USB, with Claude Code running the
-  commands. `explore` and the read-only guard were written by Claude Code during that session.
+  commands. `explore`, the read-only guard (`is_read_only`, `READ_ONLY_MODES`,
+  `READ_ONLY_ADAPTER_COMMANDS`, the check in `_query`) and `readiness_lines` were written by
+  Claude Code during that session; the versions here were checked line by line against the copy
+  on that laptop afterwards and behave the same, with the same output.
 - **Tidied for this repo, and not yet run on a car:** messages and help made generic (no
-  machine-specific paths or ports), `log --seconds N` (in the video the 30-second log was stopped
-  by a timer from the command line), `simulate.py`, and `explore` and the guard rewritten from
-  the session's screen recording (same modes, same allowed adapter read, same tests) rather than
-  copied from the laptop. These pass the tests and the simulated run.
+  machine-specific paths or ports), saved-file paths printed relative to the repo, `explore`'s
+  reads moved into a function the tests can call, a refused request now ends with a one-line
+  error instead of a traceback, `log --seconds N` (in the video the 30-second log was stopped by
+  a timer from the command line), and `simulate.py`. These pass the tests and the simulated run.
 - **Simulated:** `check`, `explore`, `log` and `summary` against the ELM327-emulator through
   `simulate.py` (local TCP), on macOS with Python 3.14 (the laptop in the video had Python 3.12).
   `simulate.py` has not been run on Windows or Linux.

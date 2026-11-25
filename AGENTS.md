@@ -76,9 +76,10 @@ Commands below work in a macOS or Linux shell and in Windows PowerShell unless m
      `CONTROL_MODULE_VOLTAGE     14.67 volt`, `No flags.` and a line
      `Saved logs/simulated/check_<time>.json (it holds the full VIN: keep it private)`.
    - `uv run --with ELM327-emulator==4.0.0 simulate.py explore`: `Protocol: ISO 15765-4 (CAN 11/500)`,
-     `Live sensors this car supports (40):` and a list,
-     `Readiness monitors: 6 of 6 complete (all complete)`, `Pending codes: none`,
-     `Freeze frame: none stored`.
+     `Live sensors this car supports (40):` and a list, then `Emissions readiness monitors:`
+     with `Engine type: spark` and six monitors all `complete`,
+     `Pending codes (seen but not confirmed):` with `none`, and `Freeze frame:` with
+     `none stored`.
    - `uv run --with ELM327-emulator==4.0.0 simulate.py log --seconds 3`: ends
      `Stopped. 3 rows in logs/simulated/drive_<time>.csv`. Then
      `uv run fit_obd.py summary logs/simulated/drive_<time>.csv` (the name it printed) prints a
@@ -162,7 +163,7 @@ Commands below work in a macOS or Linux shell and in Windows PowerShell unless m
 | Windows Device Manager: warning icon, error code 28 | No matching driver: step 5a. In the video an FTDI driver was already installed but was a package made for a different FTDI product, so Windows did not use it for this cable |
 | Driver installed, but a second device (**USB Serial Port**) now shows error 28 | Normal for FTDI cables: two halves. Repeat Update driver on that entry (step 5a) |
 | `adapter found on ... but the car is not answering` | Key not at ON, cable not fully seated in the car's port, or a car without OBD-II. Re-seat, key to ON, wait 5 s, run again. Try `--baud 38400` or `--baud 115200` |
-| `ERROR: refused ... not a read-only request. Nothing was sent to the car.` | The guard did its job: something tried a request outside the read-only modes. Do not loosen the guard to get past it. If a read was wrongly refused (in the video the adapter's `ATRV` voltage read was, before it was allowed by name), allow only that exact read-only request and add a test |
+| `ERROR: Refusing to send ...: not a read-only OBD request. Nothing was sent to the car.` | The guard did its job: something tried a request outside the read-only modes. Do not loosen the guard to get past it. If a read was wrongly refused (in the video the adapter's `ATRV` voltage read was, before it was allowed by name), allow only that exact read-only request and add a test |
 | Many lines `not supported / no answer` | That car does not report those values; normal. `explore` shows what it does report |
 | `Battery low at rest` flag | Reported, not diagnosed: see step 9. Keep key-on time short |
 | `log` rows slower than one a second | Each value is a separate request; some cars answer slowly. Use the rows you got |
@@ -183,5 +184,5 @@ Commands below work in a macOS or Linux shell and in Windows PowerShell unless m
   `readiness_lines`, `summarize_rows`, formatting), then the adapter I/O and the commands.
 - `simulate.py`: runs a command against the ELM327-emulator's simulated car.
 - `tests/test_fit_obd.py`: 16 tests with a fake car; no adapter needed.
-- `docs/car_prompt.txt`: the prompt the video gave Claude Code in the car, lightly generalized.
+- `docs/car_prompt.txt`: the prompt the video gave Claude Code in the car, car and cable made generic.
 - `README.md`: the human-facing overview, parts, safety and the Windows driver note.
