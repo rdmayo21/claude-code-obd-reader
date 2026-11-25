@@ -6,15 +6,16 @@ Work through it top to bottom from the repo root and run every check. Do everyth
 except the parts marked **HUMAN**; for those, ask, wait for the answer, and go on.
 
 **Done means:**
-1. The tests pass and the simulated car answers `check` and `explore` (steps 2 and 3). This
-   part needs no car.
+1. The tests pass and the simulated car answers all four commands in step 3 (`check`,
+   `explore`, `log`, `summary`). This part needs no car.
 2. With the cable in the car and the key at ON: `uv run fit_obd.py check` printed a snapshot
    from the real car (a masked VIN, the check-engine light, codes, voltages) and
    `uv run fit_obd.py explore` printed the car's supported sensors and readiness (steps 4 to 7).
 3. You told the human what the readings mean in plain words, including what they do not prove
    (step 9), and the key is off.
 
-If the human has no cable or is not at the car yet, stop after done 1 and tell them so.
+Step 4 asks whether the human has the cable and is at the car. If not, stop there with done 1
+and tell them what the rest needs (step 4 says what to say).
 
 ## What this is
 
@@ -37,9 +38,10 @@ against a simulated car.
   readiness monitors, so the car can fail an inspection until it has been driven enough, and the
   problem behind a code is not fixed by clearing it. This repo has no command for it; say so and
   suggest a scan tool or a mechanic rather than writing one.
-- **The VIN stays private.** Never pass `--show-vin`. Never open, print, `cat` or paste
-  `logs/check_*.json` (it holds the full VIN), and never commit anything in `logs/` (it is
-  gitignored; keep it that way). The masked VIN in `check` output is fine to show.
+- **The VIN stays private.** Never pass `--show-vin`. Never open, print, `cat` or paste any
+  `check_*.json` under `logs/` (a real one holds the full VIN; treat the simulated ones in
+  `logs/simulated/` the same way), and never commit anything in `logs/` (it is gitignored;
+  keep it that way). The masked VIN in `check` output is fine to show.
 - **Safety in and around the car.** The engine runs only outdoors, never in a closed garage. The
   driver never reads the laptop while driving; a log during a drive runs on its own
   (`--seconds`) or a passenger watches it. A key at ON with the engine off drains the battery:
@@ -49,7 +51,11 @@ against a simulated car.
 - If a check fails, read the output and use the table at the end before changing anything. If
   something fails on the car, tell the human what it means before you fix it.
 - You will download Python packages (python-obd, pytest, the emulator). If your sandbox blocks
-  that, ask the human to allow it. Keep the repo somewhere durable, not a temporary folder.
+  that, ask the human to allow it.
+- **Where the repo lives.** Clone it into the human's home folder (`~/claude-code-obd-reader`;
+  on Windows `$HOME\claude-code-obd-reader` in PowerShell), not a temporary folder: they will run
+  commands from it at the car. Whenever you hand the human a command, start it with
+  `cd <the absolute path of this folder>` and then the command.
 
 ## Steps
 
@@ -77,10 +83,16 @@ Commands below work in a macOS or Linux shell and in Windows PowerShell unless m
      `Stopped. 3 rows in logs/simulated/drive_<time>.csv`. Then
      `uv run fit_obd.py summary logs/simulated/drive_<time>.csv` (the name it printed) prints a
      table with `value min mean max n`.
-   Each takes about 5 to 10 seconds. These numbers are the emulator's, not a car's. If you are
-   about to stop here (no cable or car yet), tell the human what the next steps need.
+   Each takes about 5 to 10 seconds. These numbers and the VIN are the emulator's, not a car's
+   (its made-up VIN is 13 characters, so the mask shows 9 stars; a real 17-character VIN shows 13).
+   The emulator also leaves an empty `elm.log` in the repo root, and uv makes `.venv/` and
+   `uv.lock`; all are gitignored and harmless.
 4. **HUMAN: at the car.** Ask the human, one question at a time if needed:
-   - Do they have a USB OBD-II cable, and which? The tested one is an ELM327-compatible cable
+   - Do they have a USB OBD-II cable and are they at the car with this laptop now? If not, stop
+     here and tell them: the tests and the simulated car work; the rest needs the cable plugged
+     into the car's OBD-II port and this laptop, the key at ON, about 10 minutes, and on Windows
+     possibly a driver update in Device Manager (step 5a). They can come back to you at the car.
+   - Which cable is it? The tested one is an ELM327-compatible cable
      with an FTDI USB chip (Vgate vLinker FS USB). Bluetooth and Wi-Fi adapters are not covered
      by this runbook.
    - Is this laptop the one that will be in the car, and is the car parked outdoors or in an open

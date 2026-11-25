@@ -1,5 +1,5 @@
 [project]
-name = "fit-obd"
+name = "claude-code-obd-reader"
 version = "0.1.0"
 description = "Read a car's engine computer over a USB OBD-II adapter, read-only"
 requires-python = ">=3.11"

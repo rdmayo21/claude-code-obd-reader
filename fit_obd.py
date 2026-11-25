@@ -7,8 +7,8 @@ Usage:
     uv run fit_obd.py ports            # list serial ports this computer can see
     uv run fit_obd.py check            # one-shot health snapshot (key on, engine on or off)
     uv run fit_obd.py explore          # supported sensors, readiness, pending codes, freeze frame
-    uv run fit_obd.py log              # log once a second to logs/drive_<time>.csv until Ctrl-C
-    uv run fit_obd.py summary FILE     # min / max / average of a logged drive
+    uv run fit_obd.py log --seconds 30 # log once a second to logs/drive_<time>.csv
+    uv run fit_obd.py summary FILE     # min, mean and max of a logged drive
 """
 
 from __future__ import annotations

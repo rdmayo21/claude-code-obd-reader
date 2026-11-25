@@ -67,9 +67,9 @@ by `uv` on the first run.
 
 | Command | What it reads |
 |---|---|
-| `ports` | The serial ports this computer can see |
+| `ports` | The serial ports that answer when opened (it briefly opens each candidate port) |
 | `check` | One snapshot: VIN (masked to its last four), check-engine light, stored codes, adapter and computer voltage, temperatures, fuel, RPM, speed, load, fuel trims, pressure, distances, then plain-English flags (low battery with the engine off, charging voltage out of range with it running, hot coolant, large fuel trims, low fuel). Saves the full snapshot as JSON in `logs/` |
-| `explore` | The protocol, every live sensor the car says it supports, the emissions readiness monitors, pending codes and the freeze frame. Never asks for the VIN |
+| `explore` | The protocol, every mode 01 value the car says it supports (listed as "live sensors"; the count includes status items such as `0101 STATUS`), the emissions readiness monitors the car has, pending codes and the freeze frame. Never asks for the VIN |
 | `log` | 15 values once a second to `logs/drive_<time>.csv`, until Ctrl-C or `--seconds N` |
 | `summary FILE` | Min, mean and max of each column of a drive log |
 
@@ -163,7 +163,8 @@ test the battery and check its terminals, not a diagnosis.
   read mode (01 live data, 02 freeze frame, 03 stored codes, 07 pending codes, 09 vehicle info)
   or the adapter's own voltage read (`ATRV`, which never reaches the car). Mode 04 (clear codes),
   mode 08 (on-board tests) and every other mode are refused before anything is sent. The tests
-  check this for every command the tool uses.
+  check every command in the tool's fixed lists against the guard; the freeze-frame values that
+  `explore` picks at run time are mode 02 and go through the same guard.
 - The python-obd library itself sends the adapter's setup commands (`AT...`, they configure the
   cable, not the car) and the standard "which sensors do you support" reads when it connects.
 - There is no command in this tool to clear codes, reset anything, or reprogram the car, and
@@ -208,7 +209,8 @@ macOS and Linux include an FTDI driver.
   the session's screen recording (same modes, same allowed adapter read, same tests) rather than
   copied from the laptop. These pass the tests and the simulated run.
 - **Simulated:** `check`, `explore`, `log` and `summary` against the ELM327-emulator through
-  `simulate.py` (local TCP), on macOS. `simulate.py` has not been run on Windows or Linux.
+  `simulate.py` (local TCP), on macOS with Python 3.14 (the laptop in the video had Python 3.12).
+  `simulate.py` has not been run on Windows or Linux.
 - **Not tested:** other cars, other cables, macOS or Linux with a real cable, Bluetooth or Wi-Fi
   adapters, diesel engines (the readiness list is the petrol one). If something is off, open an issue.
 
