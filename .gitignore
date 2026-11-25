@@ -1,0 +1,9 @@
+# Readings from your car. check_*.json holds the full VIN: never commit or share these.
+logs/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+uv.lock
+*.log
+.DS_Store

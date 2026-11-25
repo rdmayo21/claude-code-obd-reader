@@ -1,0 +1,10 @@
+I just plugged a USB OBD-II cable from this laptop into my car.
+The key is at ON and the engine is off. The reader in this folder (fit_obd.py) has only ever
+run against a simulated car, never this one.
+
+Find the adapter and run the read-only check. Then tell me what else you can see from the car
+and what you could do with it. I'm exploring: I want to know what you have access to.
+
+Explain what you're doing in plain words. Read only: never clear codes or write anything to
+the car. Never print the full VIN (the check masks it; don't pass --show-vin and don't open the
+saved JSON in logs/). If something fails, tell me what it means before you fix it.
