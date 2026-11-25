@@ -74,7 +74,7 @@ Commands below work in a macOS or Linux shell and in Windows PowerShell unless m
      `Simulated car (ELM327-emulator, scenario 'car'): no real car involved.`, then a snapshot
      with `VIN: *********TS39`, `Check-engine light: off`, `Trouble codes: none`,
      `CONTROL_MODULE_VOLTAGE     14.67 volt`, `No flags.` and a line
-     `Saved logs/simulated/check_<time>.json`.
+     `Saved logs/simulated/check_<time>.json (it holds the full VIN: keep it private)`.
    - `uv run --with ELM327-emulator==4.0.0 simulate.py explore`: `Protocol: ISO 15765-4 (CAN 11/500)`,
      `Live sensors this car supports (40):` and a list,
      `Readiness monitors: 6 of 6 complete (all complete)`, `Pending codes: none`,
